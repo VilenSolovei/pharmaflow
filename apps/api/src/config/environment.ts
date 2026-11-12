@@ -1,0 +1,35 @@
+function requiredString(values: Record<string, unknown>, name: string): string {
+  const value = values[name];
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${name} is required. Copy .env.example to .env and configure it.`);
+  }
+  return value;
+}
+
+function port(values: Record<string, unknown>, name: string, fallback?: number): number {
+  const value = values[name] ?? fallback;
+  if (!/^\d+$/.test(String(value))) throw new Error(`${name} must be a valid port.`);
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+    throw new Error(`${name} must be between 1 and 65535.`);
+  }
+  return parsed;
+}
+
+export function validateEnvironment(values: Record<string, unknown>): Record<string, unknown> {
+  const nodeEnv = values.NODE_ENV ?? 'development';
+  if (!['development', 'test', 'production'].includes(String(nodeEnv))) {
+    throw new Error('NODE_ENV must be development, test or production.');
+  }
+
+  return {
+    ...values,
+    NODE_ENV: nodeEnv,
+    API_PORT: port(values, 'API_PORT', 3000),
+    DB_HOST: requiredString(values, 'DB_HOST'),
+    DB_PORT: port(values, 'DB_PORT'),
+    DB_USER: requiredString(values, 'DB_USER'),
+    DB_PASSWORD: requiredString(values, 'DB_PASSWORD'),
+    DB_NAME: requiredString(values, 'DB_NAME'),
+  };
+}
