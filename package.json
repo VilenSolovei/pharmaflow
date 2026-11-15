@@ -16,7 +16,9 @@
     "build": "npm run build --workspaces",
     "check": "npm run check --workspaces && npm run lint",
     "lint": "eslint apps",
-    "start:api": "npm run start --workspace @pharmaflow/api"
+    "start:api": "npm run start --workspace @pharmaflow/api",
+    "db:migrate": "npm run db:migrate --workspace @pharmaflow/api",
+    "test:auth": "npm run build --workspace @pharmaflow/api && npm run test:auth --workspace @pharmaflow/api"
   },
   "devDependencies": {
     "typescript": "5.9.3",

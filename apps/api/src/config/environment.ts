@@ -22,8 +22,14 @@ export function validateEnvironment(values: Record<string, unknown>): Record<str
     throw new Error('NODE_ENV must be development, test or production.');
   }
 
+  const origin = String(values.APP_ORIGIN ?? 'http://127.0.0.1:5173');
+  const url = new URL(origin);
+  if (url.origin !== origin || !['http:', 'https:'].includes(url.protocol) || (nodeEnv === 'production' && url.protocol !== 'https:')) {
+    throw new Error('APP_ORIGIN must be an origin URL; HTTPS is required in production.');
+  }
   return {
     ...values,
+    APP_ORIGIN: origin,
     NODE_ENV: nodeEnv,
     API_PORT: port(values, 'API_PORT', 3000),
     DB_HOST: requiredString(values, 'DB_HOST'),

@@ -1,3 +1,4 @@
+import { AuthPanel } from './AuthPanel';
 import { useQuery } from '@tanstack/react-query';
 
 async function checkConnection(signal: AbortSignal) {
@@ -40,13 +41,14 @@ export function App() {
             Платформа керування мережею аптек та онлайн-замовленнями.
           </p>
 
+          <AuthPanel />
           <div className="connection" data-state={state}>
             <div className="connection-heading">
               <span className="status-dot" aria-hidden="true" />
               <p role="status" aria-live="polite">{message}</p>
             </div>
             <p className="connection-caption">
-              Початкова версія застосунку. Наступний крок — каталог товарів та можливості кабінету.
+              Перевірка доступності платформи.
             </p>
             {connection.isError && (
               <button disabled={connection.isFetching} onClick={() => void connection.refetch()}>
