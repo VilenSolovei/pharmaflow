@@ -9,7 +9,9 @@
     "build": "nest build",
     "check": "tsc --noEmit",
     "db:migrate": "npm run build && node dist/database/migrate.js",
-    "test:auth": "node --test test/auth.e2e.mjs"
+    "test:auth": "node --test test/auth.e2e.mjs",
+    "db:seed": "npm run build && node dist/database/seed.js",
+    "test:catalog": "node --test test/catalog.e2e.mjs"
   },
   "dependencies": {
     "@nestjs/common": "12.4.2",

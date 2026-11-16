@@ -1,3 +1,4 @@
+import { CatalogModule } from './catalog/catalog.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -16,6 +17,7 @@ import { HealthModule } from './health/health.module.js';
     DatabaseModule,
     HealthModule,
     AuthModule,
+    CatalogModule,
   ],
 })
 export class AppModule {}
