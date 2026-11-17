@@ -1,3 +1,4 @@
+import { useCart } from './cart-store';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 interface Option { id:string; name:string; }
@@ -21,6 +22,7 @@ function ProductDetails({id,onClose}:{id:string;onClose:()=>void}){
  </dialog>;
 }
 export function Catalog(){
+ const cart=useCart();
  const [filters,setFilters]=useState<Record<string,string>>({});const [search,setSearch]=useState('');const [page,setPage]=useState(1);const [detail,setDetail]=useState<string|null>(null);
  const [locationMessage,setLocationMessage]=useState('');const [locating,setLocating]=useState(false);const cache=useQueryClient();
  const lookup=useQuery({queryKey:['catalog-filters'],queryFn:({signal})=>get<{categories:Option[];manufacturers:Option[]}>('catalog/filters',signal)});
@@ -39,6 +41,7 @@ export function Catalog(){
  return <section className="catalog" aria-labelledby="catalog-title">
   <div className="catalog-heading"><div><span className="eyebrow">Знайти потрібне</span><h1 id="catalog-title">Каталог товарів</h1><p>Ліки, вітаміни та медичні вироби у вашій аптечній мережі.</p></div></div>
   <form className="search-bar" onSubmit={e=>{e.preventDefault();update('q',search.trim());}}><label className="sr-only" htmlFor="catalog-search">Пошук товарів</label><input id="catalog-search" value={search} onChange={e=>setSearch(e.target.value)} maxLength={80} placeholder="Назва товару, категорія або виробник"/><button type="submit">Знайти</button></form>
+  {cart.error&&<p role="alert" className="cart-error">{cart.error}</p>}{cart.notice&&<p role="status" className="cart-success">{cart.notice}</p>}
   <div className="catalog-layout"><aside className="filters" aria-label="Фільтри каталогу"><h2>Фільтри</h2>
    <label>Категорія<select aria-label="Категорія" value={filters.categoryId??''} onChange={e=>update('categoryId',e.target.value)}><option value="">Усі категорії</option>{lookup.data?.categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
    <label>Виробник<select aria-label="Виробник" value={filters.manufacturerId??''} onChange={e=>update('manufacturerId',e.target.value)}><option value="">Усі виробники</option>{lookup.data?.manufacturers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
@@ -53,7 +56,7 @@ export function Catalog(){
   </aside><div className="catalog-results">
    <div className="results-toolbar"><span role="status">{products.data?`Знайдено: ${products.data.total}`:'Завантажуємо товари…'}</span><label>Сортування<select aria-label="Сортування" value={filters.sort??'name'} onChange={e=>update('sort',e.target.value)}><option value="name">За назвою</option><option value="price_asc">Спочатку дешевші</option><option value="price_desc">Спочатку дорожчі</option></select></label></div>
    {products.isPending?<div className="empty-state" role="status">Завантажуємо каталог…</div>:products.isError?<div className="empty-state" role="alert"><p>{products.error.message}</p><button onClick={()=>void products.refetch()}>Повторити</button></div>:products.data.items.length===0?<div className="empty-state"><h2>Товарів не знайдено</h2><p>Спробуйте змінити запит або фільтри.</p></div>:<div className="product-grid">{products.data.items.map(p=><article className="product-card" key={p.id}>
-    <div className={'product-symbol '+p.type.toLowerCase()} aria-hidden="true">{p.type==='MEDICINE'?'Rx':p.type==='VITAMIN'?'V+':'+'}</div><span className="product-type">{types[p.type]}</span><h2>{p.name}</h2><p className="manufacturer">{p.manufacturer}</p><p className="stock" data-available={p.available>0}>{p.available>0?'Є в наявності':'Немає в наявності'}</p><span className="prescription">{p.requiresPrescription?'За рецептом':'Без рецепта'}</span><div className="product-bottom"><strong>{money(p.priceMinor)}</strong><button onClick={()=>setDetail(p.id)} aria-label={'Деталі: '+p.name}>Деталі</button></div>
+    <div className={'product-symbol '+p.type.toLowerCase()} aria-hidden="true">{p.type==='MEDICINE'?'Rx':p.type==='VITAMIN'?'V+':'+'}</div><span className="product-type">{types[p.type]}</span><h2>{p.name}</h2><p className="manufacturer">{p.manufacturer}</p><p className="stock" data-available={p.available>0}>{p.available>0?'Є в наявності':'Немає в наявності'}</p><span className="prescription">{p.requiresPrescription?'За рецептом':'Без рецепта'}</span><div className="product-bottom"><strong>{money(p.priceMinor)}</strong><button disabled={cart.busy||cart.pending||cart.failed||p.available===0} onClick={()=>void cart.add(p.id).catch(()=>{})} aria-label={'До кошика: '+p.name}>До кошика</button><button onClick={()=>setDetail(p.id)} aria-label={'Деталі: '+p.name}>Деталі</button></div>
    </article>)}</div>}
    {products.data&&products.data.total>6&&<nav className="pagination" aria-label="Сторінки каталогу"><button disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Назад</button><span>Сторінка {page} з {Math.ceil(products.data.total/6)}</span><button disabled={page*6>=products.data.total} onClick={()=>setPage(p=>p+1)}>Далі</button></nav>}
   </div></div>{detail&&<ProductDetails id={detail} onClose={()=>setDetail(null)}/>}

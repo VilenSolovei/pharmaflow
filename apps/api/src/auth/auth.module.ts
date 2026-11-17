@@ -6,5 +6,5 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { AdminGuard, AuthRateGuard, OriginGuard, SessionGuard } from './auth.guards.js';
 @Module({ imports: [TypeOrmModule.forFeature([User, Session])], controllers: [AuthController], providers: [AuthService, SessionGuard, AdminGuard, OriginGuard, AuthRateGuard],
-  exports: [AuthService, SessionGuard, AdminGuard] })
+  exports: [AuthService, SessionGuard, AdminGuard, OriginGuard] })
 export class AuthModule {}

@@ -1,3 +1,4 @@
+import { Cart1794873600000 } from './migrations/1794873600000-cart.js';
 import { Catalog1794787200000 } from './migrations/1794787200000-catalog.js';
 import 'reflect-metadata';
 import { loadEnvFile } from 'node:process';
@@ -12,7 +13,7 @@ try { loadEnvFile(envPath); } catch (error) {
 const c = validateEnvironment(process.env);
 const db = new DataSource({ type: 'postgres', host: String(c.DB_HOST), port: Number(c.DB_PORT),
   username: String(c.DB_USER), password: String(c.DB_PASSWORD), database: String(c.DB_NAME),
-  synchronize: false, migrations: [UserAccess1794700800000, Catalog1794787200000] });
+  synchronize: false, migrations: [UserAccess1794700800000, Catalog1794787200000, Cart1794873600000] });
 try {
   await db.initialize();
   const migrations = await db.runMigrations({ transaction: 'all' });

@@ -1,3 +1,4 @@
+import { CartModule } from './cart/cart.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { Module } from '@nestjs/common';
@@ -18,6 +19,7 @@ import { HealthModule } from './health/health.module.js';
     HealthModule,
     AuthModule,
     CatalogModule,
+    CartModule,
   ],
 })
 export class AppModule {}

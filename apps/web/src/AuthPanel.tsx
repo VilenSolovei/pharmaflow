@@ -1,19 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-interface User { id: string; email: string; role: string; tier: string; }
-async function request(path: string, body?: object): Promise<User | null> {
-  const response = await fetch(`/api/auth/${path}`, {
-    method: body ? 'POST' : 'GET', credentials: 'same-origin',
-    headers: body ? { 'Content-Type': 'application/json', 'X-PharmaFlow-Request': '1' } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (path === 'me' && response.status === 401) return null;
-  if (response.status === 204) return null;
-  const data = await response.json();
-  if (!response.ok) throw new Error(typeof data.message === 'string' ? data.message : 'Перевірте email і пароль. Пароль має містити щонайменше 12 символів.');
-  return data as User;
-}
+import { accountRequest as request } from './account-api';
 export function AuthPanel() {
   const cache = useQueryClient();
   const [mode, setMode] = useState<'login' | 'register'>('login');
