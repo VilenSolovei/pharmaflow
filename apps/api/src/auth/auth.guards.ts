@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, ForbiddenException, HttpException, Injectable } from '@nestjs/common';
+import { CanActivate, ConflictException, ExecutionContext, ForbiddenException, HttpException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service.js';
 import type { PublicUser } from './auth.service.js';
@@ -48,6 +48,15 @@ export class SessionGuard implements CanActivate {
 export class AdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     if (context.switchToHttp().getRequest<AuthRequest>().user?.role !== 'ADMIN') throw new ForbiddenException();
+    return true;
+  }
+}
+
+@Injectable()
+export class AccountOwnerGuard implements CanActivate {
+  canActivate(context:ExecutionContext):boolean {
+    const req=context.switchToHttp().getRequest<AuthRequest>();
+    if(req.headers['x-pharmaflow-user']!==req.user?.id)throw new ConflictException('Обліковий запис змінився. Оновіть сторінку.');
     return true;
   }
 }

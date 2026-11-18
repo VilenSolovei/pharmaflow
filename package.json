@@ -21,7 +21,8 @@
     "test:auth": "npm run build --workspace @pharmaflow/api && npm run test:auth --workspace @pharmaflow/api",
     "db:seed": "npm run db:seed --workspace @pharmaflow/api",
     "test:catalog": "npm run build --workspace @pharmaflow/api && npm run test:catalog --workspace @pharmaflow/api",
-    "test:cart": "npm run build --workspace @pharmaflow/api && npm run test:cart --workspace @pharmaflow/api"
+    "test:cart": "npm run build --workspace @pharmaflow/api && npm run test:cart --workspace @pharmaflow/api",
+    "test:orders": "npm run build --workspace @pharmaflow/api && npm run test:orders --workspace @pharmaflow/api"
   },
   "devDependencies": {
     "typescript": "5.9.3",

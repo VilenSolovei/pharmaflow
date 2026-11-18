@@ -1,3 +1,4 @@
+import { OrdersModule } from './orders/orders.module.js';
 import { CartModule } from './cart/cart.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -20,6 +21,7 @@ import { HealthModule } from './health/health.module.js';
     AuthModule,
     CatalogModule,
     CartModule,
+    OrdersModule,
   ],
 })
 export class AppModule {}
