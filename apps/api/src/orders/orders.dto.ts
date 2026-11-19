@@ -1,3 +1,5 @@
+import { orderActions, orderStatuses } from './order-state.js';
+import type { OrderAction, OrderStatus } from './order-state.js';
 import { Transform, Type } from 'class-transformer';
 import { IsDefined, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 const trimmed = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
@@ -27,4 +29,13 @@ export class CheckoutDto {
 }
 export class OrdersQueryDto {
   @Type(()=>Number) @IsInt() @Min(1) @Max(100000) page = 1;
+}
+
+export class AdminOrdersQueryDto extends OrdersQueryDto {
+  @IsIn(['ACTIVE','ALL',...orderStatuses]) status:OrderStatus|'ACTIVE'|'ALL'='ACTIVE';
+}
+export class OrderActionDto {
+  @IsIn(orderActions) action!:OrderAction;
+  @IsIn(orderStatuses) expectedStatus!:OrderStatus;
+  @IsUUID() requestId!:string;
 }
