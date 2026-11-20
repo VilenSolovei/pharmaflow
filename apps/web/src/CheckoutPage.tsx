@@ -1,3 +1,5 @@
+import { customerRequest } from './customer-api';
+import type { Profile } from './customer-api';
 import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,9 +10,10 @@ import type { CheckoutPayload, OrderData, PharmacyOption, QuoteData } from './or
 export function CheckoutPage({onCart,onAccount,onOrders}:{onCart:()=>void;onAccount:()=>void;onOrders:()=>void}){
  const cart=useCart(),cache=useQueryClient();const uid=cart.data?.ownerId??'';
  const account=useQuery({queryKey:['account'],queryFn:()=>accountRequest('me'),retry:false});
+ const profile=useQuery({queryKey:['profile',uid],enabled:!!uid,queryFn:({signal})=>customerRequest<Profile>('',uid,'GET',undefined,signal),retry:false});
  const revision=cart.data?.revision??0;
  const [mode,setMode]=useState<'PICKUP'|'COURIER'>('PICKUP');const [pharmacyId,setPharmacy]=useState('');
- const [name,setName]=useState(''),[phone,setPhone]=useState(''),[email,setEmail]=useState(account.data?.email??'');
+ const [name,setName]=useState<string>(),[phone,setPhone]=useState<string>(),[email,setEmail]=useState(account.data?.email??'');
  const [city,setCity]=useState(''),[street,setStreet]=useState(''),[building,setBuilding]=useState(''),[apartment,setApartment]=useState('');
  const [quote,setQuote]=useState<QuoteData>();const [created,setCreated]=useState<OrderData>();
  const [busy,setBusy]=useState(false),[error,setError]=useState('');const locked=useRef(false);
@@ -27,7 +30,7 @@ export function CheckoutPage({onCart,onAccount,onOrders}:{onCart:()=>void;onAcco
    }
    if(!intent.current){
     if(!currentQuote)throw Error('Оновіть підсумок замовлення.');
-    intent.current={quoteId:currentQuote.id,requestId:crypto.randomUUID(),contact:{name:name.trim(),phone:phone.trim(),email:(email||account.data?.email||'').trim()},
+    intent.current={quoteId:currentQuote.id,requestId:crypto.randomUUID(),contact:{name:(name??profile.data?.name??'').trim(),phone:(phone??profile.data?.phone??'').trim(),email:(email||account.data?.email||'').trim()},
      ...(mode==='COURIER'?{address:{city:city.trim(),street:street.trim(),building:building.trim(),...(apartment.trim()?{apartment:apartment.trim()}:{})}}:{})};
    }
    const result=await orderRequest<OrderData>('',uid,'POST',intent.current);
@@ -51,7 +54,7 @@ export function CheckoutPage({onCart,onAccount,onOrders}:{onCart:()=>void;onAcco
  return <section className="checkout-page" aria-labelledby="checkout-title"><button className="link-button" disabled={frozen} onClick={onCart}>← До кошика</button><span className="eyebrow">Наступний крок</span><h1 id="checkout-title">Оформлення замовлення</h1><p className="cart-hint">Усі товари комплектуються з однієї аптеки. Резерв створиться після вашого підтвердження.</p>
   <form onSubmit={e=>void submit(e)} className="checkout-layout"><div className="checkout-fields"><fieldset className="checkout-card" disabled={frozen}><legend>1. Спосіб отримання</legend><div className="fulfillment-options"><label><input type="radio" name="fulfillment" checked={mode==='PICKUP'} onChange={()=>{setMode('PICKUP');setQuote(undefined);}}/>Самовивіз <small>Безкоштовно</small></label><label><input type="radio" name="fulfillment" checked={mode==='COURIER'} onChange={()=>{setMode('COURIER');setQuote(undefined);}}/>Кур’єр <small>60 грн</small></label></div></fieldset>
   <fieldset className="checkout-card" disabled={frozen}><legend>2. Аптека</legend>{options.isPending?<p role="status">Перевіряємо наявність…</p>:options.isError?<div role="alert"><p>Не вдалося завантажити аптеки. Кошик збережено.</p><button type="button" onClick={()=>{cart.refresh();void options.refetch();}}>Повторити</button></div>:<div className="checkout-pharmacies">{options.data?.pharmacies.map(ph=><label key={ph.id} data-available={ph.available}><input type="radio" name="pharmacy" value={ph.id} required disabled={!ph.available} checked={pharmacyId===ph.id} onChange={()=>{setPharmacy(ph.id);setQuote(undefined);}}/><span><strong>{ph.name}</strong><span>{ph.address}</span><small>{ph.available?'Усі товари є в наявності':ph.shortages.map(i=>`${i.name}: доступно ${i.available} із ${i.requested} шт.`).join('; ')}</small></span></label>)}{options.data&&!options.data.pharmacies.some(ph=>ph.available)&&<p role="alert">Жодна аптека не має всього кошика. Змініть кількість або склад товарів у кошику.</p>}</div>}</fieldset>
-  <fieldset className="checkout-card contact-fields" disabled={frozen}><legend>3. Контактні дані</legend><label>Ім’я одержувача<input autoComplete="name" required minLength={2} maxLength={100} value={name} onChange={e=>setName(e.target.value)}/></label><label>Телефон<input type="tel" autoComplete="tel" required minLength={7} maxLength={30} value={phone} onChange={e=>setPhone(e.target.value)}/></label><label>Email<input type="email" autoComplete="email" required maxLength={254} value={email} onChange={e=>setEmail(e.target.value)}/></label></fieldset>
+  <fieldset className="checkout-card contact-fields" disabled={frozen}><legend>3. Контактні дані</legend><label>Ім’я одержувача<input autoComplete="name" required minLength={2} maxLength={100} value={name??profile.data?.name??''} onChange={e=>setName(e.target.value)}/></label><label>Телефон<input type="tel" autoComplete="tel" required minLength={7} maxLength={30} value={phone??profile.data?.phone??''} onChange={e=>setPhone(e.target.value)}/></label><label>Email<input type="email" autoComplete="email" required maxLength={254} value={email} onChange={e=>setEmail(e.target.value)}/></label></fieldset>
   {mode==='COURIER'&&<fieldset className="checkout-card contact-fields" disabled={frozen}><legend>4. Адреса доставки</legend><label>Місто<input autoComplete="address-level2" required minLength={2} maxLength={100} value={city} onChange={e=>setCity(e.target.value)}/></label><label>Вулиця<input autoComplete="address-line1" required minLength={2} maxLength={200} value={street} onChange={e=>setStreet(e.target.value)}/></label><div className="address-row"><label>Будинок<input required maxLength={30} value={building} onChange={e=>setBuilding(e.target.value)}/></label><label>Квартира<input maxLength={30} value={apartment} onChange={e=>setApartment(e.target.value)}/></label></div></fieldset>}</div>
   <aside className="cart-summary checkout-summary"><h2>{currentQuote?'Перевірте замовлення':'Ваше замовлення'}</h2><ul>{(currentQuote?.items??cart.data.items).map(i=><li key={i.productId}><span>{i.name} × {i.quantity}</span><strong>{money(i.lineTotalMinor)}</strong></li>)}</ul>
    <p>Товари <strong>{money(currentQuote?.subtotalMinor??cart.data.totalMinor)}</strong></p><p>Доставка <strong>{money(currentQuote?.deliveryMinor??(mode==='COURIER'?6000:0))}</strong></p><p className="order-total">До сплати <strong>{money(currentQuote?.totalMinor??cart.data.totalMinor+(mode==='COURIER'?6000:0))}</strong></p><p className="cart-hint">Оплата при отриманні.</p>

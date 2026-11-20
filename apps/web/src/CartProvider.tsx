@@ -1,3 +1,5 @@
+import { OrderApiError, orderRequest } from './orders-api';
+import type { CartData } from './cart-store';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,7 +19,7 @@ export function CartProvider({children}:{children:ReactNode}){
   if(locked.current)return;
   locked.current=true;setBusy(true);setError('');setNotice('');
   try{if(account.isPending||account.isError)throw Error('Спочатку дочекайтеся перевірки облікового запису.');await action();}
-  catch(e){setError(e instanceof Error?e.message:'Не вдалося змінити кошик.');if(e instanceof CartApiError){if(e.status===401)await cache.invalidateQueries({queryKey:['account']});if(uid)await cache.invalidateQueries({queryKey:['cart',uid]});}throw e;}
+  catch(e){setError(e instanceof Error?e.message:'Не вдалося змінити кошик.');if(e instanceof CartApiError||e instanceof OrderApiError){if(e.status===401)await cache.invalidateQueries({queryKey:['account']});if(uid)await cache.invalidateQueries({queryKey:['cart',uid]});}throw e;}
   finally{locked.current=false;setBusy(false);}
  }
  async function add(id:string){return perform(async()=>{
@@ -48,6 +50,12 @@ export function CartProvider({children}:{children:ReactNode}){
   if(JSON.stringify(readDraft())===signature)writeDraft([]);
   setNotice('Товари з браузера перенесено до кошика облікового запису.');
  }));}
+ async function repeatOrder(orderId:string,revision:number,requestId:string){return perform(async()=>{
+  if(!uid)throw Error('Спочатку увійдіть до облікового запису.');
+  const result=await orderRequest<{ownerId:string;cart:CartData}>('/'+orderId+'/repeat',uid,'POST',{revision,requestId});
+  if(result.cart.ownerId!==uid)throw new CartApiError(409,'Обліковий запис змінився. Оновіть сторінку.');
+  cache.setQueryData(['cart',uid],result.cart);setNotice('Кошик підготовлено з попереднього замовлення. Перевірте актуальні ціни та наявність.');
+ });}
  function refresh(){setError('');void cache.invalidateQueries({queryKey:['account']});if(uid)void server.refetch();if(guest.items.length)void preview.refetch();}
- return <CartContext.Provider value={{data,pending,failed,busy,authenticated:!!uid,error,notice,draft:guest.items,draftData:preview.data,hasGuestDraft:!!uid&&guest.items.length>0,add,quantity,remove,importGuest,refresh}}>{children}</CartContext.Provider>;
+ return <CartContext.Provider value={{data,pending,failed,busy,authenticated:!!uid,error,notice,draft:guest.items,draftData:preview.data,hasGuestDraft:!!uid&&guest.items.length>0,add,quantity,remove,importGuest,repeatOrder,refresh}}>{children}</CartContext.Provider>;
 }

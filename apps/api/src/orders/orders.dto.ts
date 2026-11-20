@@ -39,3 +39,7 @@ export class OrderActionDto {
   @IsIn(orderStatuses) expectedStatus!:OrderStatus;
   @IsUUID() requestId!:string;
 }
+
+export class RepeatOrderDto extends CartRevisionDto {
+  @IsUUID() requestId!:string;
+}

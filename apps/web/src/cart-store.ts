@@ -6,7 +6,7 @@ export interface CartContextValue {
  data?:CartData;pending:boolean;failed:boolean;busy:boolean;authenticated:boolean;error:string;notice:string;
  draft:DraftItem[];draftData?:CartData;hasGuestDraft:boolean;
  add:(id:string)=>Promise<void>;quantity:(id:string,n:number)=>Promise<void>;remove:(id:string)=>Promise<void>;
- importGuest:()=>Promise<void>;refresh:()=>void;
+ importGuest:()=>Promise<void>;repeatOrder:(orderId:string,revision:number,requestId:string)=>Promise<void>;refresh:()=>void;
 }
 export const CartContext=createContext<CartContextValue|null>(null);
 export const guestKey='pharmaflow.cart.v1';

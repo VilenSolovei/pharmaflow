@@ -62,4 +62,32 @@ export class CartService {
   await m.query('DELETE FROM cart_items WHERE cart_id=$1',[cart.id]);
   for(const i of data.items)await m.query('INSERT INTO cart_items(id,cart_id,product_id,quantity) VALUES ($1,$2,$3,$4)',[randomUUID(),cart.id,i.productId,i.quantity]);return true;
  });}
+ private async orderItems(m:EntityManager,userId:string,orderId:string){
+  const orders:unknown[]=await m.query('SELECT id FROM orders WHERE id=$1 AND user_id=$2',[orderId,userId]);
+  if(!orders.length)throw new NotFoundException('Замовлення не знайдено.');
+  const items:CartItemDto[]=await m.query('SELECT product_id "productId",quantity FROM order_items WHERE order_id=$1 ORDER BY product_id',[orderId]);
+  if(!items.length||items.length>100)throw new BadRequestException('Не вдалося підготувати товари цього замовлення.');
+  return items;
+ }
+ async repeatPreview(userId:string,orderId:string){
+  return this.db.transaction('REPEATABLE READ',async m=>{
+   const items=await this.orderItems(m,userId,orderId),current=await this.read(m,userId);
+   const preview=this.result(await this.describe(m,items,false),undefined,userId);
+   return {...preview,sourceOrderId:orderId,revision:current.revision,replacesCount:current.count,canRepeat:preview.items.every(i=>i.active)};
+  });
+ }
+ async repeat(userId:string,orderId:string,revision:number,requestId:string){
+  return this.write(userId,async(m,cart)=>{
+   const previous:{orderId:string;revision:number}[]=await m.query('SELECT order_id "orderId",source_revision revision FROM cart_repeats WHERE user_id=$1 AND request_id=$2',[userId,requestId]);
+   if(previous[0]){if(previous[0].orderId!==orderId.toLowerCase()||previous[0].revision!==revision)throw new ConflictException('Цей запит уже використано для іншого повторення.');return false;}
+   const items=await this.orderItems(m,userId,orderId);
+   if(cart.revision!==revision)throw new ConflictException('Кошик змінився в іншому вікні. Перегляньте товари та підтвердьте перенесення ще раз.');
+   await this.requireActive(m,items.map(i=>i.productId));
+   await m.query('DELETE FROM cart_items WHERE cart_id=$1',[cart.id]);
+   for(const item of items)await m.query('INSERT INTO cart_items(id,cart_id,product_id,quantity) VALUES ($1,$2,$3,$4)',[randomUUID(),cart.id,item.productId,item.quantity]);
+   await m.query('INSERT INTO cart_repeats(user_id,request_id,order_id,source_revision) VALUES ($1,$2,$3,$4)',[userId,requestId,orderId,revision]);
+   return true;
+  });
+ }
+
 }

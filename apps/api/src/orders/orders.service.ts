@@ -1,3 +1,4 @@
+import { CartService } from '../cart/cart.service.js';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
@@ -13,7 +14,7 @@ interface OrderRow { id:string; ownerId:string; requestHash:string; pharmacyId:s
 const hash = (value:unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 @Injectable()
 export class OrdersService {
-  constructor(private readonly db:DataSource) {}
+  constructor(private readonly db:DataSource,private readonly cartService:CartService) {}
   private async lockUser(m:EntityManager, userId:string) {
     const users:unknown[] = await m.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[userId]);
     if (!users.length) throw new UnauthorizedException();
@@ -129,6 +130,8 @@ export class OrdersService {
       return {ownerId:userId,items,total,page,limit:20};
     });
   }
+  repeatPreview(userId:string,id:string){return this.cartService.repeatPreview(userId,id);}
+  async repeat(userId:string,id:string,revision:number,requestId:string){return {ownerId:userId,cart:await this.cartService.repeat(userId,id,revision,requestId)};}
   private async admin(m:EntityManager,actorId:string) {
     const rows:{role:string}[]=await m.query('SELECT role FROM users WHERE id=$1 FOR SHARE',[actorId]);
     if(rows[0]?.role!=='ADMIN')throw new ForbiddenException('Потрібні права адміністратора.');

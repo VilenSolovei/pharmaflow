@@ -1,3 +1,4 @@
+import { AccountModule } from './account/account.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { CartModule } from './cart/cart.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
@@ -19,6 +20,7 @@ import { HealthModule } from './health/health.module.js';
     DatabaseModule,
     HealthModule,
     AuthModule,
+    AccountModule,
     CatalogModule,
     CartModule,
     OrdersModule,
