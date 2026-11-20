@@ -1,0 +1,16 @@
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+
+@Injectable()
+export class HealthService {
+  constructor(private readonly database: DataSource) {}
+
+  async check() {
+    try {
+      await this.database.query('SELECT 1');
+      return { status: 'ok', checks: { database: 'up' } };
+    } catch {
+      throw new ServiceUnavailableException({ status: 'error', checks: { database: 'down' } });
+    }
+  }
+}
