@@ -1,3 +1,4 @@
+import { Loyalty1795478400000 } from './migrations/1795478400000-loyalty.js';
 import { CustomerAccount1795219200000 } from './migrations/1795219200000-customer-account.js';
 import { OrderProcessing1795046400000 } from './migrations/1795046400000-order-processing.js';
 import { Orders1794960000000 } from './migrations/1794960000000-orders.js';
@@ -16,7 +17,7 @@ try { loadEnvFile(envPath); } catch (error) {
 const c = validateEnvironment(process.env);
 const db = new DataSource({ type: 'postgres', host: String(c.DB_HOST), port: Number(c.DB_PORT),
   username: String(c.DB_USER), password: String(c.DB_PASSWORD), database: String(c.DB_NAME),
-  synchronize: false, migrations: [UserAccess1794700800000, Catalog1794787200000, Cart1794873600000, Orders1794960000000, OrderProcessing1795046400000, CustomerAccount1795219200000] });
+  synchronize: false, migrations: [UserAccess1794700800000, Catalog1794787200000, Cart1794873600000, Orders1794960000000, OrderProcessing1795046400000, CustomerAccount1795219200000, Loyalty1795478400000] });
 try {
   await db.initialize();
   const migrations = await db.runMigrations({ transaction: 'all' });

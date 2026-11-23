@@ -1,3 +1,4 @@
+import { tierLabel } from './loyalty-api';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -23,7 +24,7 @@ export function AuthPanel() {
   if (account.data) return <section className="auth-panel" aria-labelledby="account-heading">
     <h2 id="account-heading">Особистий кабінет</h2>
     <p className="account-email">{account.data.email}</p>
-    <p>{account.data.role === 'ADMIN' ? 'Адміністратор' : 'Клієнт'} · {account.data.tier === 'STANDARD' ? 'Звичайна категорія' : account.data.tier}</p>
+    <p>{account.data.role === 'ADMIN' ? 'Адміністратор' : 'Клієнт'} · {(tierLabel[account.data.tier]??account.data.tier)+' категорія'}</p>
     <button onClick={() => logout.mutate()} disabled={logout.isPending}>{logout.isPending ? 'Виходимо…' : 'Вийти'}</button>
     {logout.isError && <p role="alert">Не вдалося вийти. Спробуйте ще раз.</p>}
   </section>;

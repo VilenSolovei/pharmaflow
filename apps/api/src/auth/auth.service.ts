@@ -12,10 +12,11 @@ export class AuthService {
   async register(email: string, password: string): Promise<PublicUser> {
     const hash = await hashPassword(password);
     try {
-      const rows: PublicUser[] = await this.db.query(
-        `INSERT INTO users (id,email,password_hash) VALUES ($1,$2,$3) RETURNING ${fields}`,
-        [randomUUID(), email, hash]);
-      return rows[0];
+      return await this.db.transaction(async m=>{
+        const rows:PublicUser[]=await m.query(`INSERT INTO users(id,email,password_hash) VALUES ($1,$2,$3) RETURNING ${fields}`,[randomUUID(),email,hash]);
+        await m.query('INSERT INTO loyalty_cards(user_id) VALUES ($1)',[rows[0].id]);
+        return rows[0];
+      });
     } catch (error) {
       if ((error as { code?: string }).code === '23505') throw new ConflictException('Цей email уже зареєстрований.');
       throw error;

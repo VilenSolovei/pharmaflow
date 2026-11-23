@@ -16,7 +16,8 @@
     "test:orders": "node --test test/orders.e2e.mjs",
     "test:processing": "node --test test/order-state.test.mjs test/order-processing.e2e.mjs",
     "admin:grant": "npm run build && node dist/admin/grant-admin.js",
-    "test:account": "node --test test/account.e2e.mjs"
+    "test:account": "node --test test/account.e2e.mjs",
+    "test:loyalty": "node --test test/pricing.test.mjs test/loyalty.e2e.mjs"
   },
   "dependencies": {
     "@nestjs/common": "12.4.2",

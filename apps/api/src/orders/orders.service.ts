@@ -1,3 +1,6 @@
+import { LoyaltyService } from '../loyalty/loyalty.service.js';
+import { PricingService } from '../loyalty/pricing.service.js';
+import { roundBps } from '../loyalty/loyalty-policy.js';
 import { CartService } from '../cart/cart.service.js';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
@@ -6,15 +9,15 @@ import { AdminOrdersQueryDto, CheckoutDto, OrderActionDto, QuoteDto } from './or
 import { InvalidOrderAction, Order } from './order-state.js';
 import type { FulfillmentMode, OrderStatus } from './order-state.js';
 interface CartRow { id:string; revision:number; }
-interface Item { productId:string; name:string; priceMinor:number; quantity:number; active:boolean; requiresPrescription:boolean; }
+interface Item { productId:string; name:string; priceMinor:number; quantity:number; active:boolean; requiresPrescription:boolean; socialEligible:boolean; }
 interface Pharmacy { id:string; name:string; address:string; active:boolean; }
 interface Stock { productId:string; available:number; }
 interface QuoteRow { id:string; pharmacyId:string; mode:'PICKUP'|'COURIER'; cartRevision:number; fingerprint:string; expiresAt:Date; }
-interface OrderRow { id:string; ownerId:string; requestHash:string; pharmacyId:string; pharmacyName:string; pharmacyAddress:string; mode:FulfillmentMode; status:OrderStatus; contact:object; address:object|null; subtotalMinor:string; deliveryMinor:number; totalMinor:string; createdAt:Date; cancelledAt:Date|null; completedAt:Date|null; }
+interface OrderRow { id:string; ownerId:string; requestHash:string; pharmacyId:string; pharmacyName:string; pharmacyAddress:string; mode:FulfillmentMode; status:OrderStatus; contact:object; address:object|null; subtotalMinor:string; deliveryMinor:number; totalMinor:string; createdAt:Date; cancelledAt:Date|null; completedAt:Date|null; discountMinor:string; bonusRateBps:number; awardedBonusMinor:string; }
 const hash = (value:unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 @Injectable()
 export class OrdersService {
-  constructor(private readonly db:DataSource,private readonly cartService:CartService) {}
+  constructor(private readonly db:DataSource,private readonly cartService:CartService,private readonly pricing:PricingService,private readonly loyalty:LoyaltyService) {}
   private async lockUser(m:EntityManager, userId:string) {
     const users:unknown[] = await m.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[userId]);
     if (!users.length) throw new UnauthorizedException();
@@ -22,7 +25,7 @@ export class OrdersService {
   private async cart(m:EntityManager,userId:string,revision:number,lock=false) {
     const rows:CartRow[] = await m.query('SELECT id,revision FROM carts WHERE user_id=$1',[userId]);
     if (!rows[0] || rows[0].revision!==revision) throw new ConflictException('Кошик змінився. Поверніться до кошика й оновіть оформлення.');
-    const items:Item[] = await m.query(`SELECT p.id "productId",p.name,p.price_minor "priceMinor",p.active,p.requires_prescription "requiresPrescription",ci.quantity
+    const items:Item[] = await m.query(`SELECT p.id "productId",p.name,p.price_minor "priceMinor",p.active,p.requires_prescription "requiresPrescription",p.social_eligible "socialEligible",ci.quantity
       FROM cart_items ci JOIN products p ON p.id=ci.product_id WHERE ci.cart_id=$1 ORDER BY p.id ${lock?'FOR SHARE OF p':''}`,[rows[0].id]);
     if (!items.length) throw new BadRequestException('Кошик порожній.');
     if (items.some(i=>!i.active)) throw new ConflictException('Один із товарів більше недоступний. Оновіть кошик.');
@@ -45,13 +48,8 @@ export class OrdersService {
     const missing=this.shortages(items,stock);
     if(missing.length) throw new ConflictException('Недостатньо товарів в обраній аптеці: '+missing.map(i=>`${i.name} (доступно ${i.available} шт.)`).join(', ')+'. Резерв не створено.');
   }
-  private price(items:Item[],mode:string) {
-    const subtotalMinor=items.reduce((sum,i)=>sum+i.priceMinor*i.quantity,0);
-    const deliveryMinor=mode==='COURIER'?6000:0;
-    return {subtotalMinor,deliveryMinor,totalMinor:subtotalMinor+deliveryMinor};
-  }
-  private fingerprint(cart:CartRow,items:Item[],pharmacy:Pharmacy,mode:string) {
-    return hash({cart,items,pharmacy,mode,price:this.price(items,mode)});
+  private fingerprint(cart:CartRow,items:Item[],pharmacy:Pharmacy,mode:string,price:unknown) {
+    return hash({cart,items,pharmacy,mode,price});
   }
   async options(userId:string,revision:number) {
     return this.db.transaction('REPEATABLE READ',async m=>{
@@ -71,22 +69,24 @@ export class OrdersService {
       const {cart,items}=await this.cart(m,userId,data.revision,true);
       const ph=await this.pharmacy(m,data.pharmacyId,true);
       this.requireStock(items,await this.stock(m,ph.id,items));
+      const price=await this.pricing.forUser(m,userId,items,data.mode);
       const id=randomUUID(),expiresAt=new Date(Date.now()+10*60*1000);
       // Retain quotes referenced by orders; discard only expired, unused estimates.
       await m.query('DELETE FROM order_quotes q WHERE user_id=$1 AND expires_at<now() AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.quote_id=q.id)',[userId]);
-      await m.query('INSERT INTO order_quotes(id,user_id,pharmacy_id,mode,cart_revision,fingerprint,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',[id,userId,ph.id,data.mode,cart.revision,this.fingerprint(cart,items,ph,data.mode),expiresAt]);
+      await m.query('INSERT INTO order_quotes(id,user_id,pharmacy_id,mode,cart_revision,fingerprint,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',[id,userId,ph.id,data.mode,cart.revision,this.fingerprint(cart,items,ph,data.mode,price),expiresAt]);
       return {ownerId:userId,id,expiresAt,mode:data.mode,revision:cart.revision,pharmacy:{id:ph.id,name:ph.name,address:ph.address},
-        items:items.map(i=>({productId:i.productId,name:i.name,priceMinor:i.priceMinor,quantity:i.quantity,lineTotalMinor:i.priceMinor*i.quantity,requiresPrescription:i.requiresPrescription})),...this.price(items,data.mode)};
+        ...price};
     });
   }
   private async read(m:EntityManager,userId:string,id:string) {
     const rows:OrderRow[]=await m.query(`SELECT id,user_id "ownerId",request_hash "requestHash",pharmacy_id "pharmacyId",pharmacy_name "pharmacyName",pharmacy_address "pharmacyAddress",mode,status,contact,address,
-      subtotal_minor "subtotalMinor",delivery_minor "deliveryMinor",total_minor "totalMinor",created_at "createdAt",cancelled_at "cancelledAt",completed_at "completedAt" FROM orders WHERE id=$1 AND user_id=$2`,[id,userId]);
+      subtotal_minor "subtotalMinor",delivery_minor "deliveryMinor",total_minor "totalMinor",created_at "createdAt",cancelled_at "cancelledAt",completed_at "completedAt",discount_minor "discountMinor",bonus_rate_bps "bonusRateBps",coalesce((SELECT amount_minor FROM bonus_entries b WHERE b.order_id=orders.id),0) "awardedBonusMinor" FROM orders WHERE id=$1 AND user_id=$2`,[id,userId]);
     if(!rows[0])throw new NotFoundException('Замовлення не знайдено.');
     const {requestHash,...order}=rows[0];
     void requestHash;
-    const items:Item[]=await m.query('SELECT product_id "productId",name,price_minor "priceMinor",quantity,requires_prescription "requiresPrescription" FROM order_items WHERE order_id=$1 ORDER BY product_id',[id]);
-    return {...order,allowedActions:new Order(order.status,order.mode).actions,subtotalMinor:Number(order.subtotalMinor),totalMinor:Number(order.totalMinor),items:items.map(i=>({...i,lineTotalMinor:i.priceMinor*i.quantity}))};
+    const items:(Item&{discountBps:number;discountMinor:string;discountSource:string|null;lineTotalMinor:string;lineSubtotalMinor:string})[]=await m.query('SELECT product_id "productId",name,price_minor "priceMinor",quantity,requires_prescription "requiresPrescription",discount_bps "discountBps",discount_minor "discountMinor",discount_source "discountSource",line_total_minor "lineTotalMinor",price_minor::bigint*quantity "lineSubtotalMinor" FROM order_items WHERE order_id=$1 ORDER BY product_id',[id]);
+    const subtotalMinor=Number(order.subtotalMinor),discountMinor=Number(order.discountMinor),itemsTotalMinor=subtotalMinor-discountMinor;
+    return {...order,allowedActions:new Order(order.status,order.mode).actions,subtotalMinor,discountMinor,itemsTotalMinor,totalMinor:Number(order.totalMinor),awardedBonusMinor:Number(order.awardedBonusMinor),expectedBonusMinor:roundBps(itemsTotalMinor,order.bonusRateBps),items:items.map(i=>({...i,discountMinor:Number(i.discountMinor),lineTotalMinor:Number(i.lineTotalMinor),lineSubtotalMinor:Number(i.lineSubtotalMinor)}))};
   }
   async create(userId:string,data:CheckoutDto) {
     const requestHash=hash({quoteId:data.quoteId.toLowerCase(),contact:{name:data.contact.name,phone:data.contact.phone,email:data.contact.email},address:data.address?{city:data.address.city,street:data.address.street,building:data.address.building,apartment:data.address.apartment??''}:null});
@@ -107,14 +107,15 @@ export class OrdersService {
       if(used.length)throw new ConflictException('За цим розрахунком уже створено замовлення. Перегляньте історію.');
       const {cart,items}=await this.cart(m,userId,quote.cartRevision,true);
       const ph=await this.pharmacy(m,quote.pharmacyId,true);
-      if(this.fingerprint(cart,items,ph,quote.mode)!==quote.fingerprint)throw new ConflictException('Ціна або склад замовлення змінилися. Оновіть підсумок і підтвердьте ще раз.');
+      const price=await this.pricing.forUser(m,userId,items,quote.mode);
+      if(this.fingerprint(cart,items,ph,quote.mode,price)!==quote.fingerprint)throw new ConflictException('Ціна або склад замовлення змінилися. Оновіть підсумок і підтвердьте ще раз.');
       this.requireStock(items,await this.stock(m,ph.id,items,true));
-      const id=randomUUID(),price=this.price(items,quote.mode);
-      await m.query(`INSERT INTO orders(id,user_id,quote_id,request_id,request_hash,pharmacy_id,pharmacy_name,pharmacy_address,mode,contact,address,subtotal_minor,delivery_minor,total_minor)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,[id,userId,quote.id,data.requestId,requestHash,ph.id,ph.name,ph.address,quote.mode,JSON.stringify(data.contact),data.address?JSON.stringify(data.address):null,price.subtotalMinor,price.deliveryMinor,price.totalMinor]);
-      for(const item of items) {
+      const id=randomUUID();
+      await m.query(`INSERT INTO orders(id,user_id,quote_id,request_id,request_hash,pharmacy_id,pharmacy_name,pharmacy_address,mode,contact,address,subtotal_minor,delivery_minor,total_minor,discount_minor,bonus_rate_bps)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,[id,userId,quote.id,data.requestId,requestHash,ph.id,ph.name,ph.address,quote.mode,JSON.stringify(data.contact),data.address?JSON.stringify(data.address):null,price.subtotalMinor,price.deliveryMinor,price.totalMinor,price.discountMinor,price.bonusRateBps]);
+      for(const item of price.items) {
         await m.query('UPDATE stock_items SET reserved=reserved+$3 WHERE pharmacy_id=$1 AND product_id=$2',[ph.id,item.productId,item.quantity]);
-        await m.query('INSERT INTO order_items(id,order_id,product_id,name,price_minor,quantity,requires_prescription) VALUES ($1,$2,$3,$4,$5,$6,$7)',[randomUUID(),id,item.productId,item.name,item.priceMinor,item.quantity,item.requiresPrescription]);
+        await m.query('INSERT INTO order_items(id,order_id,product_id,name,price_minor,quantity,requires_prescription,discount_bps,discount_minor,discount_source,line_total_minor) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',[randomUUID(),id,item.productId,item.name,item.priceMinor,item.quantity,item.requiresPrescription,item.discountBps,item.discountMinor,item.discountSource,item.lineTotalMinor]);
       }
       await m.query('DELETE FROM cart_items WHERE cart_id=$1',[cart.id]);
       await m.query('UPDATE carts SET revision=revision+1 WHERE id=$1',[cart.id]);
@@ -182,6 +183,7 @@ export class OrdersService {
     let next:OrderStatus;
     try{next=order.apply(data.action);}catch(e){if(e instanceof InvalidOrderAction)throw new ConflictException(e.message);throw e;}
     if(next==='CANCELLED'||next==='COMPLETED')await this.inventory(m,id,row.pharmacyId,next==='COMPLETED');
+    if(next==='COMPLETED')await this.loyalty.award(m,row.ownerId,id);
     await m.query("UPDATE orders SET status=$2::varchar,cancelled_at=CASE WHEN $2::varchar='CANCELLED' THEN clock_timestamp() ELSE NULL END,completed_at=CASE WHEN $2::varchar='COMPLETED' THEN clock_timestamp() ELSE NULL END WHERE id=$1",[id,next]);
     await m.query('INSERT INTO order_transitions(id,order_id,actor_id,request_id,expected_status,action,from_status,to_status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',[randomUUID(),id,actorId,data.requestId,data.expectedStatus,data.action,row.status,next]);
     return this.read(m,row.ownerId,id);

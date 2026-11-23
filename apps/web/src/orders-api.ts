@@ -1,10 +1,10 @@
 export type OrderAction='CONFIRM'|'PREPARE_PICKUP'|'DISPATCH'|'COMPLETE'|'CANCEL';
 export const money=(value:number)=>new Intl.NumberFormat('uk-UA',{style:'currency',currency:'UAH'}).format(value/100);
-export interface OrderItem {productId:string;name:string;priceMinor:number;quantity:number;lineTotalMinor:number;requiresPrescription:boolean;}
+export interface OrderItem {productId:string;name:string;priceMinor:number;quantity:number;lineTotalMinor:number;requiresPrescription:boolean;lineSubtotalMinor:number;discountBps:number;discountMinor:number;discountSource:string|null;}
 export interface OrderContact {name:string;phone:string;email:string;}
 export interface PostalAddress {city:string;street:string;building:string;apartment?:string;}
-export interface OrderData {id:string;ownerId:string;pharmacyId:string;pharmacyName:string;pharmacyAddress:string;mode:'PICKUP'|'COURIER';status:string;contact:OrderContact;address:PostalAddress|null;subtotalMinor:number;deliveryMinor:number;totalMinor:number;createdAt:string;cancelledAt:string|null;completedAt:string|null;allowedActions:OrderAction[];items:OrderItem[];}
-export interface QuoteData {id:string;ownerId:string;expiresAt:string;mode:'PICKUP'|'COURIER';revision:number;pharmacy:{id:string;name:string;address:string;};items:OrderItem[];subtotalMinor:number;deliveryMinor:number;totalMinor:number;}
+export interface OrderData {id:string;ownerId:string;pharmacyId:string;pharmacyName:string;pharmacyAddress:string;mode:'PICKUP'|'COURIER';status:string;contact:OrderContact;address:PostalAddress|null;subtotalMinor:number;discountMinor:number;itemsTotalMinor:number;bonusRateBps:number;expectedBonusMinor:number;deliveryMinor:number;totalMinor:number;createdAt:string;cancelledAt:string|null;completedAt:string|null;awardedBonusMinor:number;allowedActions:OrderAction[];items:OrderItem[];}
+export interface QuoteData {id:string;ownerId:string;expiresAt:string;mode:'PICKUP'|'COURIER';revision:number;pharmacy:{id:string;name:string;address:string;};items:OrderItem[];subtotalMinor:number;discountMinor:number;itemsTotalMinor:number;bonusRateBps:number;expectedBonusMinor:number;deliveryMinor:number;totalMinor:number;}
 export interface PharmacyOption {id:string;name:string;address:string;available:boolean;shortages:{name:string;requested:number;available:number;}[];}
 export interface CheckoutPayload {quoteId:string;requestId:string;contact:OrderContact;address?:PostalAddress;}
 export class OrderApiError extends Error {constructor(public status:number,message:string){super(message);}}
