@@ -41,7 +41,7 @@ test('loyalty: legacy migration, pricing snapshots, admin rules and atomic bonus
   await db.query("INSERT INTO order_quotes(id,user_id,pharmacy_id,mode,cart_revision,fingerprint,expires_at) VALUES ($1,$2,$3,'PICKUP',0,$4,now())",[id(9011),legacyUser,id(21),'0'.repeat(64)]);
   await db.query("INSERT INTO orders(id,user_id,quote_id,request_id,request_hash,pharmacy_id,pharmacy_name,pharmacy_address,mode,contact,subtotal_minor,delivery_minor,total_minor) VALUES ($1,$2,$3,$4,$5,$6,'Стара аптека','Стара адреса','PICKUP','{}',16400,0,16400)",[legacyOrder,legacyUser,id(9011),id(9013),'0'.repeat(64),id(21)]);
   await db.query("INSERT INTO order_items(id,order_id,product_id,name,price_minor,quantity,requires_prescription) VALUES ($1,$2,$3,'Ібупрофен',8200,2,false)",[id(9014),legacyOrder,id(102)]);
-  assert.match(run('migrate'),/Applied migrations: 1/);assert.match(run('migrate'),/Applied migrations: 0/);
+  assert.match(run('migrate'),/Applied migrations: 2/);assert.match(run('migrate'),/Applied migrations: 0/);
   const legacy=(await db.query('SELECT total_minor,discount_minor,bonus_rate_bps FROM orders WHERE id=$1',[legacyOrder])).rows[0];assert.equal(Number(legacy.total_minor),16400);assert.equal(Number(legacy.discount_minor),0);assert.equal(legacy.bonus_rate_bps,0);assert.equal((await db.query('SELECT count(*)::int n FROM loyalty_cards')).rows[0].n,1);
   await start();
   const standard=await account('standard@example.invalid'),social=await account('social@example.invalid'),premium=await account('premium@example.invalid'),operator=await account('operator@example.invalid');

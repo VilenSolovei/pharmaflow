@@ -7,7 +7,7 @@ interface Product { id:string; name:string; description:string; type:string; pri
 const money=(n:number)=>new Intl.NumberFormat('uk-UA',{style:'currency',currency:'UAH'}).format(n/100);
 const types:Record<string,string>={MEDICINE:'Лікарський засіб',VITAMIN:'Вітаміни',MEDICAL_DEVICE:'Медичний виріб'};
 async function get<T>(url:string,signal?:AbortSignal):Promise<T>{const r=await fetch('/api/'+url,{signal});if(!r.ok)throw Error('Не вдалося завантажити дані. Перевірте фільтри або спробуйте ще раз.');return r.json();}
-function ProductDetails({id,onClose}:{id:string;onClose:()=>void}){
+function ProductDetails({id,onClose,onNotify}:{id:string;onClose:()=>void;onNotify:(product:Option)=>void}){
  const dialog=useRef<HTMLDialogElement>(null);
  const product=useQuery({queryKey:['product',id],queryFn:({signal})=>get<Product>('products/'+id,signal)});
  useEffect(()=>{const d=dialog.current;const previous=document.activeElement;d?.showModal();return()=>{d?.close();if(previous instanceof HTMLElement)previous.focus();};},[]);
@@ -17,11 +17,11 @@ function ProductDetails({id,onClose}:{id:string;onClose:()=>void}){
   {product.isPending?<p role="status">Завантажуємо…</p>:product.isError?<p role="alert">{product.error.message}</p>:<>
    <p>{product.data.manufacturer} · {product.data.category}</p><strong className="detail-price">{money(product.data.priceMinor)}</strong>
    {product.data.description && <p>{product.data.description}</p>}<p>{product.data.requiresPrescription?'Рецептурний товар':'Без рецепта'}</p>
-   <h3>Наявність в аптеках</h3><ul className="pharmacy-list">{product.data.pharmacies?.map(p=><li key={p.id}><strong>{p.name}</strong><span>{p.address}</span><span>{p.available ? `Доступно: ${p.available} шт.`:'Немає в наявності'}</span></li>)}</ul>
+   <button className="notify-product-button" onClick={()=>onNotify({id,name:product.data.name})}>Повідомити про наявність</button><h3>Наявність в аптеках</h3><ul className="pharmacy-list">{product.data.pharmacies?.map(p=><li key={p.id}><strong>{p.name}</strong><span>{p.address}</span><span>{p.available ? `Доступно: ${p.available} шт.`:'Немає в наявності'}</span></li>)}</ul>
   </>}
  </dialog>;
 }
-export function Catalog(){
+export function Catalog({onNotify}:{onNotify:(product:Option)=>void}){
  const cart=useCart();
  const [filters,setFilters]=useState<Record<string,string>>({});const [search,setSearch]=useState('');const [page,setPage]=useState(1);const [detail,setDetail]=useState<string|null>(null);
  const [locationMessage,setLocationMessage]=useState('');const [locating,setLocating]=useState(false);const cache=useQueryClient();
@@ -59,6 +59,6 @@ export function Catalog(){
     <div className={'product-symbol '+p.type.toLowerCase()} aria-hidden="true">{p.type==='MEDICINE'?'Rx':p.type==='VITAMIN'?'V+':'+'}</div><span className="product-type">{types[p.type]}</span><h2>{p.name}</h2><p className="manufacturer">{p.manufacturer}</p><p className="stock" data-available={p.available>0}>{p.available>0?'Є в наявності':'Немає в наявності'}</p><span className="prescription">{p.requiresPrescription?'За рецептом':'Без рецепта'}</span><div className="product-bottom"><strong>{money(p.priceMinor)}</strong><button disabled={cart.busy||cart.pending||cart.failed||p.available===0} onClick={()=>void cart.add(p.id).catch(()=>{})} aria-label={'До кошика: '+p.name}>До кошика</button><button onClick={()=>setDetail(p.id)} aria-label={'Деталі: '+p.name}>Деталі</button></div>
    </article>)}</div>}
    {products.data&&products.data.total>6&&<nav className="pagination" aria-label="Сторінки каталогу"><button disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Назад</button><span>Сторінка {page} з {Math.ceil(products.data.total/6)}</span><button disabled={page*6>=products.data.total} onClick={()=>setPage(p=>p+1)}>Далі</button></nav>}
-  </div></div>{detail&&<ProductDetails id={detail} onClose={()=>setDetail(null)}/>}
+  </div></div>{detail&&<ProductDetails id={detail} onClose={()=>setDetail(null)} onNotify={onNotify}/>}
  </section>;
 }

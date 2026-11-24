@@ -28,7 +28,7 @@ test('orders: checkout, ownership, price confirmation, stock concurrency and can
  try{
   await admin.query(`CREATE DATABASE "${name}"`);created=true;
   const run=file=>execFileSync(process.execPath,['dist/database/'+file+'.js'],{cwd:resolve(root,'apps/api'),env,encoding:'utf8'});
-  assert.match(run('migrate'),/Applied migrations: 7/);assert.match(run('migrate'),/Applied migrations: 0/);run('seed');
+  assert.match(run('migrate'),/Applied migrations: 8/);assert.match(run('migrate'),/Applied migrations: 0/);run('seed');
   db=new pg.Client({...settings,database:name});await db.connect();await start();
   const contact={name:'Тестовий Одержувач',phone:'+380671234567',email:'recipient@example.invalid'};
   const address={city:'Львів',street:'Зелена',building:'15',apartment:'7'};

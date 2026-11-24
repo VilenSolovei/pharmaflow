@@ -1,3 +1,5 @@
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { LoyaltyModule } from './loyalty/loyalty.module.js';
 import { AccountModule } from './account/account.module.js';
 import { OrdersModule } from './orders/orders.module.js';
@@ -19,6 +21,8 @@ import { HealthModule } from './health/health.module.js';
       validate: validateEnvironment,
     }),
     DatabaseModule,
+    EventEmitterModule.forRoot(),
+    NotificationsModule,
     HealthModule,
     AuthModule,
     AccountModule,

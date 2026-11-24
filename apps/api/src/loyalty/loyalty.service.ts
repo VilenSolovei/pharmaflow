@@ -1,3 +1,4 @@
+import { OutboxService } from '../events/outbox.service.js';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
@@ -6,7 +7,7 @@ import { roundBps } from './loyalty-policy.js';
 interface PromotionRow {id:string;name:string;discountBps:number;startsAt:Date;endsAt:Date;active:boolean;revision:number;phase:string;}
 @Injectable()
 export class LoyaltyService {
-  constructor(private readonly db:DataSource){}
+  constructor(private readonly db:DataSource,private readonly outbox:OutboxService){}
   private async admin(m:EntityManager,actorId:string){const rows:{role:string}[]=await m.query('SELECT role FROM users WHERE id=$1',[actorId]);if(rows[0]?.role!=='ADMIN')throw new ForbiddenException('Потрібні права адміністратора.');}
   private async lockPricing(m:EntityManager){await m.query('SELECT id FROM pricing_revision WHERE id=1 FOR UPDATE');}
   private async changed(m:EntityManager){await m.query('UPDATE pricing_revision SET revision=revision+1 WHERE id=1');}
@@ -98,8 +99,9 @@ export class LoyaltyService {
       await this.requireProducts(m,ids,data.active);await this.lockPricing(m);
       const concurrent=await this.replayPromotion(m,actorId,data.requestId,fingerprint);if(concurrent)return concurrent;
       const id=randomUUID();
-      await m.query('INSERT INTO promotions(id,name,discount_bps,starts_at,ends_at,active,created_by,request_id,request_hash) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',[id,data.name,data.discountBps,data.startsAt,data.endsAt,data.active,actorId,data.requestId,fingerprint]);
+      await m.query('INSERT INTO promotions(id,name,discount_bps,starts_at,ends_at,active,created_by,request_id,request_hash,notification_generation) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[id,data.name,data.discountBps,data.startsAt,data.endsAt,data.active,actorId,data.requestId,fingerprint,data.active?1:0]);
       for(const productId of ids)await m.query('INSERT INTO promotion_items(promotion_id,product_id) VALUES ($1,$2)',[id,productId]);
+      if(data.active)await this.outbox.enqueue(m,'PROMOTION_PUBLISHED',`promotion:${id}:1`,{promotionId:id,generation:1},new Date(data.startsAt));
       await this.changed(m);return {ownerId:actorId,promotion:await this.promotion(m,id)};
     });
   }
@@ -107,11 +109,13 @@ export class LoyaltyService {
     this.validatePromotion(data);
     return this.db.transaction(async m=>{
       await this.admin(m,actorId);await this.requireProducts(m,data.productIds,data.active);await this.lockPricing(m);
-      const rows:{revision:number}[]=await m.query('SELECT revision FROM promotions WHERE id=$1 FOR UPDATE',[id]);
+      const rows:{revision:number;active:boolean;generation:number}[]=await m.query('SELECT revision,active,notification_generation generation FROM promotions WHERE id=$1 FOR UPDATE',[id]);
       if(!rows[0])throw new NotFoundException('Акцію не знайдено.');
       if(rows[0].revision!==data.revision)throw new ConflictException('Акція вже змінилася. Оновіть список і відкрийте її ще раз.');
-      await m.query('UPDATE promotions SET name=$2,discount_bps=$3,starts_at=$4,ends_at=$5,active=$6,revision=revision+1 WHERE id=$1',[id,data.name,data.discountBps,data.startsAt,data.endsAt,data.active]);
+      const generation=data.active&&(!rows[0].active||rows[0].generation===0)?rows[0].generation+1:rows[0].generation;
+      await m.query('UPDATE promotions SET name=$2,discount_bps=$3,starts_at=$4,ends_at=$5,active=$6,revision=revision+1,notification_generation=$7 WHERE id=$1',[id,data.name,data.discountBps,data.startsAt,data.endsAt,data.active,generation]);
       await m.query('DELETE FROM promotion_items WHERE promotion_id=$1',[id]);for(const productId of data.productIds)await m.query('INSERT INTO promotion_items(promotion_id,product_id) VALUES ($1,$2)',[id,productId]);
+      if(data.active)await this.outbox.enqueue(m,'PROMOTION_PUBLISHED',`promotion:${id}:${generation}`,{promotionId:id,generation},new Date(data.startsAt));
       await this.changed(m);return {ownerId:actorId,promotion:await this.promotion(m,id)};
     });
   }

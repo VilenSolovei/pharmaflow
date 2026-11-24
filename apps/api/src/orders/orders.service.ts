@@ -1,3 +1,4 @@
+import { InventoryService } from '../inventory/inventory.service.js';
 import { LoyaltyService } from '../loyalty/loyalty.service.js';
 import { PricingService } from '../loyalty/pricing.service.js';
 import { roundBps } from '../loyalty/loyalty-policy.js';
@@ -17,7 +18,7 @@ interface OrderRow { id:string; ownerId:string; requestHash:string; pharmacyId:s
 const hash = (value:unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 @Injectable()
 export class OrdersService {
-  constructor(private readonly db:DataSource,private readonly cartService:CartService,private readonly pricing:PricingService,private readonly loyalty:LoyaltyService) {}
+  constructor(private readonly db:DataSource,private readonly cartService:CartService,private readonly pricing:PricingService,private readonly loyalty:LoyaltyService,private readonly inventoryService:InventoryService) {}
   private async lockUser(m:EntityManager, userId:string) {
     const users:unknown[] = await m.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[userId]);
     if (!users.length) throw new UnauthorizedException();
@@ -158,15 +159,6 @@ export class OrdersService {
       return {ownerId:actorId,items,total,page:query.page,limit:20};
     });
   }
-  private async inventory(m:EntityManager,id:string,pharmacyId:string,complete:boolean) {
-    const items:{productId:string;quantity:number}[]=await m.query('SELECT product_id "productId",quantity FROM order_items WHERE order_id=$1 ORDER BY product_id',[id]);
-    const stock:{productId:string;reserved:number;onHand:number}[]=await m.query('SELECT product_id "productId",reserved,on_hand "onHand" FROM stock_items WHERE pharmacy_id=$1 AND product_id=ANY($2::uuid[]) ORDER BY product_id FOR UPDATE',[pharmacyId,items.map(i=>i.productId)]);
-    const byProduct=new Map(stock.map(i=>[i.productId,i]));
-    if(!items.length||items.some(i=>{const row=byProduct.get(i.productId);return !row||row.reserved<i.quantity||(complete&&row.onHand<i.quantity);})) {
-      throw new ConflictException('Залишки не узгоджені з резервом. Зміни не виконано; перевірте залишки аптеки.');
-    }
-    for(const item of items)await m.query(`UPDATE stock_items SET reserved=reserved-$3${complete?',on_hand=on_hand-$3':''} WHERE pharmacy_id=$1 AND product_id=$2`,[pharmacyId,item.productId,item.quantity]);
-  }
   private async change(m:EntityManager,actorId:string,id:string,data:OrderActionDto,admin:boolean) {
     if(admin)await this.admin(m,actorId);
     // One lock protects both customer cancellation and every administrator action.
@@ -182,7 +174,7 @@ export class OrdersService {
     const order=new Order(row.status,row.mode);
     let next:OrderStatus;
     try{next=order.apply(data.action);}catch(e){if(e instanceof InvalidOrderAction)throw new ConflictException(e.message);throw e;}
-    if(next==='CANCELLED'||next==='COMPLETED')await this.inventory(m,id,row.pharmacyId,next==='COMPLETED');
+    if(next==='CANCELLED'||next==='COMPLETED')await this.inventoryService.releaseOrConsume(m,id,row.pharmacyId,next==='COMPLETED');
     if(next==='COMPLETED')await this.loyalty.award(m,row.ownerId,id);
     await m.query("UPDATE orders SET status=$2::varchar,cancelled_at=CASE WHEN $2::varchar='CANCELLED' THEN clock_timestamp() ELSE NULL END,completed_at=CASE WHEN $2::varchar='COMPLETED' THEN clock_timestamp() ELSE NULL END WHERE id=$1",[id,next]);
     await m.query('INSERT INTO order_transitions(id,order_id,actor_id,request_id,expected_status,action,from_status,to_status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',[randomUUID(),id,actorId,data.requestId,data.expectedStatus,data.action,row.status,next]);

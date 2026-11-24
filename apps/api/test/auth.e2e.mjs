@@ -47,7 +47,7 @@ test('registration, sessions, authorization and persistence against PostgreSQL',
   try {
     await admin.query(`CREATE DATABASE "${name}"`); created = true;
     const migrate = () => execFileSync(process.execPath, ['dist/database/migrate.js'], { cwd: resolve(root, 'apps/api'), env, encoding: 'utf8' });
-    assert.match(migrate(), /Applied migrations: 7/); assert.match(migrate(), /Applied migrations: 0/);
+    assert.match(migrate(), /Applied migrations: 8/); assert.match(migrate(), /Applied migrations: 0/);
     db = new pg.Client({ ...settings, database: name }); await db.connect();
     await start();
     assert.equal((await request('me')).status, 401);

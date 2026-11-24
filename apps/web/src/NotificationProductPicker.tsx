@@ -1,0 +1,11 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { notificationPublic } from './notifications-api';
+import type { NotificationProduct } from './notifications-api';
+export function NotificationProductPicker({value,onChange,disabled=false}:{value?:NotificationProduct;onChange:(product:NotificationProduct|undefined)=>void;disabled?:boolean}){
+ const [input,setInput]=useState(''),[q,setQ]=useState(''),[page,setPage]=useState(1);
+ const products=useQuery({queryKey:['notification-product-picker',q,page],enabled:!value,queryFn:({signal})=>notificationPublic<{items:NotificationProduct[];total:number;limit:number}>('products?limit=12&q='+encodeURIComponent(q)+'&page='+page,signal),retry:false});
+ if(value)return <div className="notification-selected-product"><strong>{value.name}</strong><button type="button" className="secondary" disabled={disabled} onClick={()=>onChange(undefined)}>Змінити товар</button></div>;
+ function search(){setQ(input.trim());setPage(1);}
+ return <div className="notification-product-picker"><div className="loyalty-search"><label>Пошук товару для сповіщень<input maxLength={80} value={input} disabled={disabled} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();search();}}}/></label><button type="button" disabled={disabled} onClick={search}>Знайти товар</button></div>{products.isPending?<p role="status">Завантажуємо товари…</p>:products.isError?<div role="alert"><p>{products.error.message}</p><button type="button" onClick={()=>void products.refetch()}>Повторити</button></div>:<><div className="notification-product-results">{products.data?.items.map(p=><button type="button" className="secondary" key={p.id} disabled={disabled} aria-label={'Обрати товар: '+p.name} onClick={()=>onChange(p)}>{p.name}</button>)}</div>{products.data&&!products.data.total&&<p className="cart-hint">Товарів не знайдено.</p>}{products.data&&products.data.total>products.data.limit&&<div className="pagination"><button type="button" disabled={disabled||page<=1} onClick={()=>setPage(p=>p-1)}>Попередні товари</button><span>{page}</span><button type="button" disabled={disabled||page*products.data.limit>=products.data.total} onClick={()=>setPage(p=>p+1)}>Наступні товари</button></div>}</>}</div>;
+}

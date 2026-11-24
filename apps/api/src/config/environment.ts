@@ -27,8 +27,14 @@ export function validateEnvironment(values: Record<string, unknown>): Record<str
   if (url.origin !== origin || !['http:', 'https:'].includes(url.protocol) || (nodeEnv === 'production' && url.protocol !== 'https:')) {
     throw new Error('APP_ORIGIN must be an origin URL; HTTPS is required in production.');
   }
+  const workerEnabled=String(values.NOTIFICATION_WORKER_ENABLED??(nodeEnv==='test'?'false':'true'));
+  if(!['true','false'].includes(workerEnabled))throw new Error('NOTIFICATION_WORKER_ENABLED must be true or false.');
+  const pollMs=Number(values.NOTIFICATION_POLL_MS??5000);
+  if(!Number.isInteger(pollMs)||pollMs<50||pollMs>60000)throw new Error('NOTIFICATION_POLL_MS must be between 50 and 60000.');
   return {
     ...values,
+    NOTIFICATION_WORKER_ENABLED: workerEnabled==='true',
+    NOTIFICATION_POLL_MS: pollMs,
     APP_ORIGIN: origin,
     NODE_ENV: nodeEnv,
     API_PORT: port(values, 'API_PORT', 3000),
