@@ -22,7 +22,7 @@ test('catalog filtering, stock integrity, nearest pharmacies and demo seed', {ti
  const list=async query=>{const r=await get('products?'+query);assert.equal(r.status,200);return r.json();};
  try{
   await admin.query(`CREATE DATABASE "${name}"`);created=true;
-  assert.match(run('migrate'),/Applied migrations: 8/);assert.match(run('migrate'),/Applied migrations: 0/);
+  assert.match(run('migrate'),/Applied migrations: 9/);assert.match(run('migrate'),/Applied migrations: 0/);
   run('seed');run('seed');db=new pg.Client({...config,database:name});await db.connect();
   child=spawn(process.execPath,['dist/main.js'],{cwd:resolve(root,'apps/api'),env,stdio:['ignore','pipe','pipe']});
   child.stdout.on('data',b=>logs+=b);child.stderr.on('data',b=>logs+=b);

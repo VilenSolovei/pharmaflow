@@ -28,7 +28,8 @@
     "test:account": "npm run build --workspace @pharmaflow/api && npm run test:account --workspace @pharmaflow/api",
     "test:loyalty": "npm run build --workspace @pharmaflow/api && npm run test:loyalty --workspace @pharmaflow/api",
     "test:notifications": "npm run build --workspace @pharmaflow/api && npm run test:notifications --workspace @pharmaflow/api",
-    "notifications:run": "npm run build --workspace @pharmaflow/api && npm run notifications:run --workspace @pharmaflow/api"
+    "notifications:run": "npm run build --workspace @pharmaflow/api && npm run notifications:run --workspace @pharmaflow/api",
+    "test:admin": "npm run build --workspace @pharmaflow/api && npm run test:admin --workspace @pharmaflow/api"
   },
   "devDependencies": {
     "typescript": "5.9.3",

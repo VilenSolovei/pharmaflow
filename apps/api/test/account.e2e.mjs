@@ -28,7 +28,7 @@ test('customer account: profile, private prescriptions, version conflicts and sa
  try{
   await admin.query(`CREATE DATABASE "${name}"`);created=true;
   const run=file=>execFileSync(process.execPath,['dist/database/'+file+'.js'],{cwd:resolve(root,'apps/api'),env,encoding:'utf8'});
-  assert.match(run('migrate'),/Applied migrations: 8/);assert.match(run('migrate'),/Applied migrations: 0/);run('seed');
+  assert.match(run('migrate'),/Applied migrations: 9/);assert.match(run('migrate'),/Applied migrations: 0/);run('seed');
   db=new pg.Client({...settings,database:name});await db.connect();await start();
   const one=await account('one@example.invalid'),two=await account('two@example.invalid'),operator=await account('operator@example.invalid');
   await db.query("UPDATE users SET role='ADMIN' WHERE id=$1",[operator.user.id]);

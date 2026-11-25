@@ -28,7 +28,7 @@ test('cart ownership, concurrent writes, limits, import conflicts and persistenc
  try{
   await admin.query(`CREATE DATABASE "${name}"`);created=true;
   const run=file=>execFileSync(process.execPath,['dist/database/'+file+'.js'],{cwd:resolve(root,'apps/api'),env,encoding:'utf8'});
-  assert.match(run('migrate'),/Applied migrations: 8/);assert.match(run('migrate'),/Applied migrations: 0/);run('seed');
+  assert.match(run('migrate'),/Applied migrations: 9/);assert.match(run('migrate'),/Applied migrations: 0/);run('seed');
   db=new pg.Client({...settings,database:name});await db.connect();await start();
   assert.equal((await req('cart')).status,401);
   let r=await req('cart/preview','POST',{items:[{productId:id(102),quantity:2}]});assert.equal(r.status,200);let body=await r.json();assert.equal(body.totalMinor,16400);assert.equal(body.ownerId,null);

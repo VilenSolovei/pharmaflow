@@ -19,7 +19,8 @@
     "test:account": "node --test test/account.e2e.mjs",
     "test:loyalty": "node --test test/pricing.test.mjs test/loyalty.e2e.mjs",
     "test:notifications": "node --test test/reminders.test.mjs test/notifications.e2e.mjs",
-    "notifications:run": "node dist/notifications/run.js"
+    "notifications:run": "node dist/notifications/run.js",
+    "test:admin": "node --test test/catalog-admin.e2e.mjs"
   },
   "dependencies": {
     "@nestjs/common": "12.4.2",

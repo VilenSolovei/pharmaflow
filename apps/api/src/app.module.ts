@@ -1,3 +1,4 @@
+import { CatalogAdminModule } from './admin/catalog-admin.module.js';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { LoyaltyModule } from './loyalty/loyalty.module.js';
@@ -28,6 +29,7 @@ import { HealthModule } from './health/health.module.js';
     AccountModule,
     LoyaltyModule,
     CatalogModule,
+    CatalogAdminModule,
     CartModule,
     OrdersModule,
   ],
