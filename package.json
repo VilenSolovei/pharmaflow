@@ -1,0 +1,47 @@
+{
+  "name": "pharmaflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pharmacy management and online ordering platform",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others -n api,web \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run start:dev --workspace @pharmaflow/api",
+    "dev:web": "npm run dev --workspace @pharmaflow/web",
+    "build": "npm run build --workspaces",
+    "check": "npm run check --workspaces && npm run lint",
+    "lint": "eslint apps",
+    "start:api": "npm run start --workspace @pharmaflow/api",
+    "db:migrate": "npm run db:migrate --workspace @pharmaflow/api",
+    "test:auth": "npm run build --workspace @pharmaflow/api && npm run test:auth --workspace @pharmaflow/api",
+    "db:seed": "npm run db:seed --workspace @pharmaflow/api",
+    "test:catalog": "npm run build --workspace @pharmaflow/api && npm run test:catalog --workspace @pharmaflow/api",
+    "test:cart": "npm run build --workspace @pharmaflow/api && npm run test:cart --workspace @pharmaflow/api",
+    "test:orders": "npm run build --workspace @pharmaflow/api && npm run test:orders --workspace @pharmaflow/api",
+    "test:processing": "npm run build --workspace @pharmaflow/api && npm run test:processing --workspace @pharmaflow/api",
+    "admin:grant": "npm run admin:grant --workspace @pharmaflow/api --",
+    "test:account": "npm run build --workspace @pharmaflow/api && npm run test:account --workspace @pharmaflow/api",
+    "test:loyalty": "npm run build --workspace @pharmaflow/api && npm run test:loyalty --workspace @pharmaflow/api",
+    "test:notifications": "npm run build --workspace @pharmaflow/api && npm run test:notifications --workspace @pharmaflow/api",
+    "notifications:run": "npm run build --workspace @pharmaflow/api && npm run notifications:run --workspace @pharmaflow/api",
+    "test:admin": "npm run build --workspace @pharmaflow/api && npm run test:admin --workspace @pharmaflow/api"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "24.19.2",
+    "concurrently": "10.0.7",
+    "eslint": "10.14.0",
+    "typescript-eslint": "8.72.2",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "@eslint/js": "10.0.1"
+  },
+  "overrides": {
+    "minimatch": "11.0.5"
+  }
+}
